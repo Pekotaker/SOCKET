@@ -32,16 +32,18 @@ def send(msg):
         pass
 
 def process(event = None):
-    #code shit in here fellas
-    name = input()
-    send(name)
-    active = True
-    while active:
-        msg = input()
-        send(msg)
-        if msg == DISCONNECT_MESSAGE:
-            active = False
-            client.close()
+    try:
+        #Registering
+        active = True
+        while active:
+            msg = input()
+            send(msg)
+            if msg == DISCONNECT_MESSAGE:
+                active = False
+                client.close()
+    except OSError:
+        print(f"[SERVER] {HOST} Disconnected")
+        client.close()
                             
 
 HOST = input('Enter host: ')
