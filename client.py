@@ -6,6 +6,7 @@ BUFFER_SIZE = 1024
 FORMAT = 'utf-8'
 COMMAND_DISCONNECT = "!disconnect"
 
+# receive and printing messages function
 def receive():
     while True:
         try:
@@ -24,16 +25,16 @@ def receive():
             client.close()
             break
            
-
+# send messages function
 def send(msg):
     try:
         client.send(msg.encode(FORMAT))
     except OSError:
         pass
 
+# main process for handling sending message
 def process(event = None):
     try:
-        #Registering
         active = True
         while active:
             msg = input()
@@ -48,18 +49,27 @@ def process(event = None):
 
 HOST = input('Enter host: ')
 PORT = input('Enter port: ')
+
+# If input PORT invalid, it will automatically be 33000
 if not PORT:
     PORT = 33000
 else:
     PORT = int(PORT)
 ADDR = (HOST, PORT)
 
+# Create socket
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 try:
+    # Connect to the host's IP address with the Port number 
+    # Stored inside the ADDR = (HOST, POST)    
     client.connect(ADDR)
     print(f"Connected to {HOST} successfully.")
+
+    # thread for receive messages
     RECEIVE_THREAD = threading.Thread(target = receive)
     RECEIVE_THREAD.start()
+
+    # thread for sending messages
     SEND_THREAD = threading.Thread(target = process)
     SEND_THREAD.start()
 except:
