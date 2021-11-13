@@ -4,14 +4,14 @@ import tkinter
 
 BUFFER_SIZE = 1024
 FORMAT = 'utf-8'
-DISCONNECT_MESSAGE = "!disconnect"
+COMMAND_DISCONNECT = "!disconnect"
 
 def receive():
     while True:
         try:
             msg = client.recv(BUFFER_SIZE).decode(FORMAT)
             if msg:
-                if msg != DISCONNECT_MESSAGE:
+                if msg != COMMAND_DISCONNECT:
                     print(f"[SERVER] {msg}")
                 else:
                     active = False
@@ -38,7 +38,7 @@ def process(event = None):
         while active:
             msg = input()
             send(msg)
-            if msg == DISCONNECT_MESSAGE:
+            if msg == COMMAND_DISCONNECT:
                 active = False
                 client.close()
     except OSError:
@@ -58,10 +58,10 @@ client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 try:
     client.connect(ADDR)
     print(f"Connected to {HOST} successfully.")
-    MAIN_THREAD = threading.Thread(target = receive)
-    MAIN_THREAD.start()
-    RECEIVE_THREAD = threading.Thread(target = process)
+    RECEIVE_THREAD = threading.Thread(target = receive)
     RECEIVE_THREAD.start()
+    SEND_THREAD = threading.Thread(target = process)
+    SEND_THREAD.start()
 except:
     print(f"Cannot connect to {HOST}:{PORT}")
 
