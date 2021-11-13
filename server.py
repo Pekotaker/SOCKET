@@ -143,7 +143,7 @@ def client_handle(client, username):
                         client.send("Select a bank\nNgan hang Nha nuoc: sbv\nVietcombank       : vcb\nViettinbank       : ctg\nTechcombank       : tcb\nBIDV              : bid\nSacombank         : stb\n".encode(FORMAT))
                         try:
                             bank = client.recv(BUFFER_SIZE).decode(FORMAT)
-                            print(f"[{username}] {bank}")
+                            print(f"[{username}] chat: {bank}")
                             return_data(client, bank)
                         except OSError:
                             pass
