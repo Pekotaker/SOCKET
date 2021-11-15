@@ -3,7 +3,7 @@ import socket
 import threading
 
 # For parsing data
-from urllib.request import Request, urlopen
+import ssl
 import json
 
 # for login and registing
@@ -12,29 +12,29 @@ import sqlite3
 # For beautiful GUI
 import tkinter
 
-COMMAND_LOGIN = "!login"
+COMMAND_LOG_IN = "!login"
 COMMAND_SIGN_UP = "!signup"
 COMMAND_DISCONNECT = "!disconnect"
 COMMAND_REQUEST_DATA = "!request data"
 
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 8192
 FORMAT = 'utf-8'
 
 PORT = 33000
 HOST = "127.0.0.1"
 ADDR = (HOST, PORT)
 
-# Login and Sign Up
+# Log in and Sign Up
 def registering(client):
     try:
         # Connect to database: Users.db
         database = sqlite3.connect('Users.db')
         c = database.cursor()
         
-        # Choice: Login or Sign Up?
-        client.send(f"Login or Sign Up?\nType '{COMMAND_LOGIN}' or '{COMMAND_SIGN_UP}'".encode(FORMAT))  
+        # Choice: Log in or Sign Up?
+        client.send(f"Log In or Sign Up?\nType '{COMMAND_LOG_IN}' or '{COMMAND_SIGN_UP}'".encode(FORMAT))  
         choice = client.recv(BUFFER_SIZE).decode(FORMAT)
-        while (choice != COMMAND_LOGIN) and (choice != COMMAND_SIGN_UP):
+        while (choice != COMMAND_LOG_IN) and (choice != COMMAND_SIGN_UP):
             if choice != COMMAND_DISCONNECT:
                 client.send("Syntax Error. Type again".encode(FORMAT))
                 choice = client.recv(BUFFER_SIZE).decode(FORMAT)
@@ -42,19 +42,20 @@ def registering(client):
                 pass
 
         # Login
-        if choice == COMMAND_LOGIN:
+        if choice == COMMAND_LOG_IN:
 
+            #Ask for username and password
             client.send("Username: ".encode(FORMAT))
             username = client.recv(BUFFER_SIZE).decode(FORMAT)
 
             client.send("Password: ".encode(FORMAT))
             password = client.recv(BUFFER_SIZE).decode(FORMAT)
 
-            # Find existing username
+            # Find existing username and corresponding password
             c.execute('SELECT * FROM database WHERE username = ? AND password = ?', (username, password))
             # If not found, login again
             while not c.fetchall():
-                client.send("Login failed. Try again".encode(FORMAT))
+                client.send("Logged in failed. Try again".encode(FORMAT))
                 client.send("Username: ".encode(FORMAT))
                 username = client.recv(BUFFER_SIZE).decode(FORMAT)
                 client.send("Password: ".encode(FORMAT))
@@ -62,38 +63,35 @@ def registering(client):
                 c.execute('SELECT * FROM database WHERE username = ? AND password = ?', (username, password))
 
             # if found, handle the client in client_handle()
-            print(f"[{addresses[client]}] {username} connected")
+            print(f"[{username}] Logged in successfully")
             client_handle(client, username)
 
         # Sign Up 
         if choice == COMMAND_SIGN_UP:
 
+            #Ask for username
             client.send("Username: ".encode(FORMAT))
             username = client.recv(BUFFER_SIZE).decode(FORMAT)
-
-            client.send("Password: ".encode(FORMAT))
-            password = client.recv(BUFFER_SIZE).decode(FORMAT)
-
 
             # Is the username already exist?
             c.execute('SELECT * FROM database WHERE username = ?', (username,))
 
             # If yes, then sign up failed, sign up again
             while c.fetchall():
-                client.send("Sign up failed. Try again".encode(FORMAT))
+                client.send(f"{username} already existed. Try again".encode(FORMAT))
                 client.send("Username: ".encode(FORMAT))
                 username = client.recv(BUFFER_SIZE).decode(FORMAT)
-                client.send("Password: ".encode(FORMAT))
-                password = client.recv(BUFFER_SIZE).decode(FORMAT)
                 c.execute('SELECT * FROM database WHERE username = ?', (username,))
-
-            # if no, then add new username and password to the database
+            
+            # if no, then ask for a password, add new username and password to the database
+            client.send("Password: ".encode(FORMAT))
+            password = client.recv(BUFFER_SIZE).decode(FORMAT)
             c.execute("INSERT INTO database (username, password) \
                 VALUES ('"+ username + "', '" + password + "')")
             database.commit()
 
             # and then handle the client in client_handle()
-            print(f"[{addresses[client]}] {username} connected")
+            print(f"[{username}] Signed up successfully")
             client_handle(client, username)
         database.close()
     except OSError:
@@ -103,21 +101,64 @@ def registering(client):
 # Getting API keys and Return data
 def return_data(client, bank):
     try:
-        # API Key, request
-        URL_getData = f"https://vapi.vnappmob.com/api/v2/exchange_rate/{bank}"
-        URL_getAPI = "https://vapi.vnappmob.com/api/request_api_key?scope=exchange_rate"
-        api_key = json.loads(urlopen(Request(URL_getAPI)).read())['results']
-        r = Request(URL_getData)
+        # HOST and port address
+        host = "vapi.vnappmob.com"
+        ADDR = (host, 443) 
 
-        # Add header with authorization, bearer
-        r.add_header('Authorization', 'Bearer ' + api_key)
-        data = json.loads(urlopen(r).read())
+        # Wrapper with default settings
+        context = ssl.create_default_context()
+            
+        # Create and connect to SSL socket
+        ssl_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        conn = context.wrap_socket(ssl_socket, server_hostname=host)
+        conn.connect(ADDR)
 
-        # Convert returned data to string (text)
-        data = str(data)
+        # API request syntax
+        get_API_request = f"GET /api/request_api_key?scope=exchange_rate HTTP/1.1\r\nHost: {host} \r\n\r\n"
 
-        # Send it to client
-        client.send(data.encode(FORMAT))
+        # Request API key
+        conn.sendall(get_API_request.encode(FORMAT))
+        API_key = conn.recv(BUFFER_SIZE)
+
+        # Remove API header
+        index = API_key.find(bytes("{",FORMAT))
+        temp1 = API_key[index:]
+        temp2 = json.loads(temp1)
+        API_key = temp2["results"]
+
+        # Data request syntax
+        get_data_request = f"GET /api/v2/exchange_rate/{bank} HTTP/1.1\r\nHost: {host}\r\nAccept: application/json\r\nAuthorization: Bearer {API_key}\r\n\r\n"
+
+        # Request data
+        conn.sendall(get_data_request.encode(FORMAT))
+        
+        # This will receive the header, we dont need that
+        temp = conn.recv(BUFFER_SIZE)
+        # This will receive the data, which is what we want
+        temp = conn.recv(BUFFER_SIZE)
+        temp2 = json.loads(temp)
+
+        # Client will choose a currency:
+        #   Send the list of available currency in the chosen bank
+        client.send("Choose a currency".encode(FORMAT))
+        for items in temp2["results"]:
+            client.send(f"\r\n{items['currency']}".encode(FORMAT))
+
+        currency = client.recv(BUFFER_SIZE).decode(FORMAT)
+        print(f"[{clients[client]}] chat: {currency}")
+
+        #   Find the currency and send the data to the client
+        found = False
+        for items in temp2["results"]:
+            if items['currency'] == currency:
+                found = True
+                client.send(f"Currency: {currency}".encode(FORMAT))
+                for element in items:
+                    if element != "currency" and element != "Currency":
+                        client.send(f"\r\n{element}: {items[element]}".encode(FORMAT))
+                break
+        if found == False:
+            client.send("Currency not found".encode(FORMAT))      
     except OSError:
         pass
 
@@ -170,13 +211,13 @@ def accept_connections():
 
     # Listening for incoming connections
     server.listen()
-    print(f"[SERVER] [{HOST}:{PORT}] Listening...")
+    print(f"[{HOST}:{PORT}] Listening...")
 
     while True:
 
         # Store socket information and addresses returned by the server.accept() function
         client, addr = server.accept()
-        print(f"[SERVER] {addr} connected")
+        print(f"[{addr}] connected")
         try:
             addresses[client] = addr
 
@@ -238,7 +279,7 @@ clients = {}
 addresses = {}
 
 if __name__ == "__main__":
-    print("[SERVER] Server started")
+    print("Server started")
 
     # thread for 'main_thread()'
     MAIN_THREAD = threading.Thread(target = main_thread)
