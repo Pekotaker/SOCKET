@@ -165,7 +165,7 @@ def return_data(client, bank):
 # Handle idividual connections
 def client_handle(client, username):
     try:
-        client.send(f"Welcome {username}, Type {COMMAND_DISCONNECT} if you want to quit.".encode(FORMAT))
+        client.send(f"Welcome {username}!\nType {COMMAND_DISCONNECT} to quit.\nType {COMMAND_REQUEST_DATA} to request data.".encode(FORMAT))
 
         # Store login information for temporary use: username will be used as display name in chat
         clients[client] = username
@@ -232,7 +232,6 @@ def accept_connections():
         except OSError:
             #Client suddenly disconnect
             print(f"[{addr}] Disconnected.")     
-
 
 # Basically a different, independent thread purely for sending messages to all the clients
 def main_thread():
