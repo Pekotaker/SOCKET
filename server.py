@@ -284,7 +284,6 @@ def client_handle(client, username):
     # If clients suddenly turn off in this step
     except OSError:  
         pass
-    print("shit4")
 
 # Listening to connection and handling multithreading        
 def accept_connections():
