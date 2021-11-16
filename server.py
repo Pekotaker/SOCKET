@@ -271,20 +271,15 @@ def client_handle(client, username):
                             if bank != COMMAND_DISCONNECT:
                                 print(f"[{username}] chat: {bank}")
                                 return_data(client, bank)
-                            print("shit0")
                         except OSError:
                             pass
-                        print("shit1")
-                
                 # If they type 'COMMAND_DISCONNECT'
                 else:
                     active = False
-                print("shit2")
 
             # If clients suddenly turn off in this step       
             except OSError:
                 active = False
-            print("shit3")
     
     # If clients suddenly turn off in this step
     except OSError:  
