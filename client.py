@@ -15,14 +15,12 @@ def receive():
                 if msg != COMMAND_DISCONNECT:
                     print(f"[SERVER] {msg}")
                 else:
-                    active = False
+                    send(COMMAND_DISCONNECT)
                     print(f"[SERVER] {HOST} Disconnected")
                     client.close()
                     break
         except OSError:
-            active = False
             print(f"[SERVER] {HOST} Disconnected")
-            client.close()
             break
            
 # send messages function
@@ -52,7 +50,7 @@ PORT = input('Enter port: ')
 
 # If input PORT invalid, it will automatically be 33000
 if not PORT:
-    PORT = 33000
+    PORT = 12345
 else:
     PORT = int(PORT)
 ADDR = (HOST, PORT)

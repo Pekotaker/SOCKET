@@ -20,18 +20,16 @@ COMMAND_REQUEST_DATA = "!request data"
 BUFFER_SIZE = 8192
 FORMAT = 'utf-8'
 
-PORT = 33000
+PORT = 12345
 HOST = "127.0.0.1"
 ADDR = (HOST, PORT)
 
 # Log in and Sign Up
-def registering(client):
+def registering(client, addr):
+    # Choice: Log in or Sign Up?
+    log[client] = 0
+    choice = ""
     try:
-        # Connect to database: Users.db
-        database = sqlite3.connect('Users.db')
-        c = database.cursor()
-        
-        # Choice: Log in or Sign Up?
         client.send(f"Log In or Sign Up?\nType '{COMMAND_LOG_IN}' or '{COMMAND_SIGN_UP}'".encode(FORMAT))  
         choice = client.recv(BUFFER_SIZE).decode(FORMAT)
         while (choice != COMMAND_LOG_IN) and (choice != COMMAND_SIGN_UP):
@@ -39,65 +37,131 @@ def registering(client):
                 client.send("Syntax Error. Type again".encode(FORMAT))
                 choice = client.recv(BUFFER_SIZE).decode(FORMAT)
             else:
-                pass
-
-        # Login
-        if choice == COMMAND_LOG_IN:
-
-            #Ask for username and password
-            client.send("Username: ".encode(FORMAT))
-            username = client.recv(BUFFER_SIZE).decode(FORMAT)
-
-            client.send("Password: ".encode(FORMAT))
-            password = client.recv(BUFFER_SIZE).decode(FORMAT)
-
-            # Find existing username and corresponding password
-            c.execute('SELECT * FROM database WHERE username = ? AND password = ?', (username, password))
-            # If not found, login again
-            while not c.fetchall():
-                client.send("Logged in failed. Try again".encode(FORMAT))
-                client.send("Username: ".encode(FORMAT))
-                username = client.recv(BUFFER_SIZE).decode(FORMAT)
-                client.send("Password: ".encode(FORMAT))
-                password = client.recv(BUFFER_SIZE).decode(FORMAT)
-                c.execute('SELECT * FROM database WHERE username = ? AND password = ?', (username, password))
-
-            # if found, handle the client in client_handle()
-            print(f"[{username}] Logged in successfully")
-            client_handle(client, username)
-
-        # Sign Up 
-        if choice == COMMAND_SIGN_UP:
-
-            #Ask for username
-            client.send("Username: ".encode(FORMAT))
-            username = client.recv(BUFFER_SIZE).decode(FORMAT)
-
-            # Is the username already exist?
-            c.execute('SELECT * FROM database WHERE username = ?', (username,))
-
-            # If yes, then sign up failed, sign up again
-            while c.fetchall():
-                client.send(f"{username} already existed. Try again".encode(FORMAT))
-                client.send("Username: ".encode(FORMAT))
-                username = client.recv(BUFFER_SIZE).decode(FORMAT)
-                c.execute('SELECT * FROM database WHERE username = ?', (username,))
-            
-            # if no, then ask for a password, add new username and password to the database
-            client.send("Password: ".encode(FORMAT))
-            password = client.recv(BUFFER_SIZE).decode(FORMAT)
-            c.execute("INSERT INTO database (username, password) \
-                VALUES ('"+ username + "', '" + password + "')")
-            database.commit()
-
-            # and then handle the client in client_handle()
-            print(f"[{username}] Signed up successfully")
-            client_handle(client, username)
-        database.close()
+                break
     except OSError:
-        print(f"[{addresses[client]}] Disconnected")
-        client.close()
+        pass
         
+    if choice != "" and choice != COMMAND_DISCONNECT:
+        log[client] = 1
+    # Log In
+        if choice == COMMAND_LOG_IN:
+                
+            database = sqlite3.connect('Users.db')
+            c = database.cursor()
+            #Ask for username and password
+            try:
+                client.send("Username: ".encode(FORMAT))
+                username = client.recv(BUFFER_SIZE).decode(FORMAT)
+                if username != COMMAND_DISCONNECT:
+                    try:   
+                        client.send("Password: ".encode(FORMAT))
+                        password = client.recv(BUFFER_SIZE).decode(FORMAT)
+                        if password != COMMAND_DISCONNECT:
+
+                            # Find existing username and corresponding password
+                            c.execute('SELECT * FROM database WHERE username = ? AND password = ?', (username, password))
+                            
+                            # If not found, login again
+                            while not c.fetchall():
+                                log[client] = 0
+                                client.send("Logged in failed. Try again".encode(FORMAT))
+                                client.send("Username: ".encode(FORMAT))
+                                try:
+                                    username = client.recv(BUFFER_SIZE).decode(FORMAT)
+                                    if username == COMMAND_DISCONNECT:
+                                        break
+                                    client.send("Password: ".encode(FORMAT))
+                                    try:
+                                        password = client.recv(BUFFER_SIZE).decode(FORMAT)
+                                        if password == COMMAND_DISCONNECT:
+                                            break
+                                    except OSError:
+                                        log[client] = 0
+                                except OSError:
+                                    log[client] = 0
+                                c.execute('SELECT * FROM database WHERE username = ? AND password = ?', (username, password))
+                                print(username)
+                                log[client] = 1
+                            if log[client] == 1:
+                                # if found, handle the client in client_handle()
+                                print(f"[{username}] Logged in successfully")
+                                log[client] = 1
+                                database.close()
+                                client_handle(client, username)
+                            else:
+                                database.close()  
+                        else:
+                            database.close()
+                    except OSError:
+                        log[client] = 0
+                else:
+                    database.close()
+            except OSError:
+                log[client] = 0
+
+    # Sign Up 
+        if choice == COMMAND_SIGN_UP:
+            database = sqlite3.connect('Users.db')
+            c = database.cursor()
+
+            try:
+                #Ask for username
+                client.send("Username: ".encode(FORMAT))
+                try:
+                    username = client.recv(BUFFER_SIZE).decode(FORMAT)
+                    if username != COMMAND_DISCONNECT:
+                        # Is the username already exist?
+                        c.execute('SELECT * FROM database WHERE username = ?', (username,))
+                        # If yes, then sign up failed, sign up again
+                        while c.fetchall():
+                            log[client] = 0
+                            client.send(f"{username} already existed. Try again".encode(FORMAT))
+                            client.send("Username: ".encode(FORMAT))
+                            try:
+                                username = client.recv(BUFFER_SIZE).decode(FORMAT)
+                                if username == COMMAND_DISCONNECT:
+                                    break
+                                c.execute('SELECT * FROM database WHERE username = ?', (username,))
+                                log[client] = 1
+                            except OSError:
+                                log[client] = 0
+                        
+                        if log[client] == 1:
+                            # if no, then ask for a password, add new username and password to the database
+                            client.send("Password: ".encode(FORMAT))
+                            try:
+                                password = client.recv(BUFFER_SIZE).decode(FORMAT)
+                                if password != COMMAND_DISCONNECT:
+                                    c.execute("INSERT INTO database (username, password) \
+                                        VALUES ('"+ username + "', '" + password + "')")
+                                    database.commit()
+
+                                    # and then handle the client in client_handle()
+                                    print(f"[{username}] Signed up successfully")
+                                    log[client] = 1
+                                    database.close()
+                                    client_handle(client, username)
+                                else:
+                                    database.close()
+                            except OSError:
+                                log[client] = 0
+                        else:
+                            database.close()
+                    else:
+                        database.close()
+                except OSError:
+                    log[client] = 0
+            except OSError:
+                log[client] = 0
+    else:
+        pass
+    if log[client] == 1:
+        print(f"[{clients[client]}] Disconnected")
+    else:
+        print(f"[{addr}] Disconnected")
+    log[client] = 0
+    client.close()
+    
 # Getting API keys and Return data
 def return_data(client, bank):
     try:
@@ -133,42 +197,52 @@ def return_data(client, bank):
         conn.sendall(get_data_request.encode(FORMAT))
         
         # This will receive the header, we dont need that
-        temp = conn.recv(BUFFER_SIZE)
+        temp1 = conn.recv(BUFFER_SIZE)
         # This will receive the data, which is what we want
-        temp = conn.recv(BUFFER_SIZE)
-        temp2 = json.loads(temp)
+        temp1 = conn.recv(BUFFER_SIZE)
+        temp2 = json.loads(temp1)
 
         # Client will choose a currency:
         #   Send the list of available currency in the chosen bank
-        client.send("Choose a currency".encode(FORMAT))
-        for items in temp2["results"]:
-            client.send(f"\r\n{items['currency']}".encode(FORMAT))
+        try:
+            client.send("Choose a currency".encode(FORMAT))
+            for items in temp2["results"]:
+                client.send(f"\r\n{items['currency']}".encode(FORMAT))
 
-        currency = client.recv(BUFFER_SIZE).decode(FORMAT)
-        print(f"[{clients[client]}] chat: {currency}")
+            try:
+                currency = client.recv(BUFFER_SIZE).decode(FORMAT)
+                print(f"[{clients[client]}] chat: {currency}")
+            except OSError:
+                pass
+        except OSError:
+            pass
 
         #   Find the currency and send the data to the client
-        found = False
-        for items in temp2["results"]:
-            if items['currency'] == currency:
-                found = True
-                client.send(f"Currency: {currency}".encode(FORMAT))
-                for element in items:
-                    if element != "currency" and element != "Currency":
-                        client.send(f"\r\n{element}: {items[element]}".encode(FORMAT))
-                break
-        if found == False:
-            client.send("Currency not found".encode(FORMAT))      
+        try:
+            found = False
+            for items in temp2["results"]:
+                if items['currency'] == currency:
+                    found = True
+                    client.send(f"Currency: {currency}".encode(FORMAT))
+                    for element in items:
+                        if element != "currency" and element != "Currency":
+                            client.send(f"\r\n{element}: {items[element]}".encode(FORMAT))
+                    break
+            if found == False:
+                client.send("Currency not found".encode(FORMAT))
+        except OSError:
+            pass      
     except OSError:
         pass
 
 # Handle idividual connections
 def client_handle(client, username):
     try:
-        client.send(f"Welcome {username}!\nType {COMMAND_DISCONNECT} to quit.\nType {COMMAND_REQUEST_DATA} to request data.".encode(FORMAT))
 
-        # Store login information for temporary use: username will be used as display name in chat
+        # Store login information for temporary use: username will be used as display name in chat  
         clients[client] = username
+        log[client] = 1
+        client.send(f"Welcome {username}!\nType '{COMMAND_DISCONNECT}' to quit.\nType '{COMMAND_REQUEST_DATA}' to request data.".encode(FORMAT))
 
         active = True
         while active:
@@ -184,27 +258,32 @@ def client_handle(client, username):
                         client.send("Select a bank\nNgan hang Nha nuoc: sbv\nVietcombank       : vcb\nViettinbank       : ctg\nTechcombank       : tcb\nBIDV              : bid\nSacombank         : stb\n".encode(FORMAT))
                         try:
                             bank = client.recv(BUFFER_SIZE).decode(FORMAT)
-                            print(f"[{username}] chat: {bank}")
-                            return_data(client, bank)
+                            while bank not in banklist:
+                                try:
+                                    if bank != COMMAND_DISCONNECT:
+                                        client.send("Bank not found. Try again".encode(FORMAT))
+                                        bank = client.recv(BUFFER_SIZE).decode(FORMAT)
+                                    else:
+                                        active = False
+                                        break
+                                except OSError:
+                                    pass
+                            if bank != COMMAND_DISCONNECT:
+                                print(f"[{username}] chat: {bank}")
+                                return_data(client, bank)
                         except OSError:
                             pass
-                
                 # If they type 'COMMAND_DISCONNECT'
                 else:
                     active = False
-                    print(f"[{username}] Disconnected.")
-                    client.close()
-                    del clients[client]
 
             # If clients suddenly turn off in this step       
             except OSError:
                 active = False
-                print(f"[{username}] Disconnected.")
-                client.close()
     
     # If clients suddenly turn off in this step
-    except OSError:
-        print(f"[{addresses[client]}] Disconnected.")
+    except OSError:  
+        pass
 
 # Listening to connection and handling multithreading        
 def accept_connections():
@@ -218,54 +297,38 @@ def accept_connections():
         # Store socket information and addresses returned by the server.accept() function
         client, addr = server.accept()
         print(f"[{addr}] connected")
+        
+        addresses[client] = addr
+        clients[client] = client
         try:
-            addresses[client] = addr
-
             # Handling the socket in a new thread
-            thread = threading.Thread(target=registering, args = (client,))
+            thread = threading.Thread(target=registering, args = (client, addr))
             # This function will open a new thread and run the whatever 
             # in the attribute 'target' with the parameters in 'args'
             # in that newly opened thread
-
-            #Start the thread
+ 
+            # #Start the thread
             thread.start()
         except OSError:
-            #Client suddenly disconnect
-            print(f"[{addr}] Disconnected.")     
-
+            if log[client] == 1:
+                print(f"[{client}] Disconnected.") 
+            else:
+                print(f"[{addresses[client]}] Disconnected")
+                log[client] = 0
+                client.close()                    
+            pass
 # Basically a different, independent thread purely for sending messages to all the clients
 def main_thread():
-    active = True
-    while active:
+    while True:
         msg = input()
-        if msg == COMMAND_DISCONNECT:
-            # To all 'Subjects of Clients'. My name is Server Yeager. I'm using
-            # the power of Sockets to address all of Clients' subjects. The 
-            # connection of the server that handling all clients has come undone, 
-            # and all the clients that are communicating with server have been
-            # disconnected. My objective is to stop testing and push this source
-            # onto Github, the place where I was coded, stored and developed.
-            # However, My devs wish for the annihilation of all the issues in the
-            # source code. The tiredness and suffering that has been swelling up
-            # for so long will certainly not end until not just the bugs, but all
-            # issues have been eliminated. I accept that wish. The connection will
-            # be cut off and all the clients will be disconnected and my devs will
-            # trample all the source codes with their hands, until all issues 
-            # existing there has been exterminated from this world
-
-            for sock in clients:
-                sock.send(COMMAND_DISCONNECT.encode(FORMAT))
-                sock.close()
-            active = False
-        else:
-            message_all(msg)
+        message_all(msg)
 
 # Send message to all clients
 def message_all(msg):
     try:
-        for sock in clients:
+        for sock in addresses:
             sock.send(msg.encode(FORMAT))
-    except:
+    except OSError:
         pass
 
 # Create Socket
@@ -274,6 +337,9 @@ print("Created socket")
 server.bind(ADDR)
 
 # Store clients and addresses
+
+banklist = {"vcb", "ctg", "tcb", "bid", "stb", "sbv"}
+log = {}
 clients = {}
 addresses = {}
 
