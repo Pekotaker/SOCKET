@@ -25,7 +25,7 @@ HOST = "127.0.0.1"
 ADDR = (HOST, PORT)
 
 # Log in and Sign Up
-def registering(client, addr):
+def registering(client):
     # Choice: Log in or Sign Up?
     log[client] = 0
     choice = ""
@@ -37,19 +37,20 @@ def registering(client, addr):
                 client.send("Syntax Error. Type again".encode(FORMAT))
                 choice = client.recv(BUFFER_SIZE).decode(FORMAT)
             else:
+                client.send(COMMAND_DISCONNECT.encode(FORMAT))
                 break
     except OSError:
         pass
         
     if choice != "" and choice != COMMAND_DISCONNECT:
+        # Log In
         log[client] = 1
-    # Log In
         if choice == COMMAND_LOG_IN:
-                
             database = sqlite3.connect('Users.db')
             c = database.cursor()
-            #Ask for username and password
+            
             try:
+                #Ask for username and password
                 client.send("Username: ".encode(FORMAT))
                 username = client.recv(BUFFER_SIZE).decode(FORMAT)
                 if username != COMMAND_DISCONNECT:
@@ -64,42 +65,54 @@ def registering(client, addr):
                             # If not found, login again
                             while not c.fetchall():
                                 log[client] = 0
-                                client.send("Logged in failed. Try again".encode(FORMAT))
-                                client.send("Username: ".encode(FORMAT))
                                 try:
-                                    username = client.recv(BUFFER_SIZE).decode(FORMAT)
-                                    if username == COMMAND_DISCONNECT:
-                                        break
+                                    client.send("Logged in failed. Try again".encode(FORMAT))
+                                    client.send("Username: ".encode(FORMAT))
+                                    
+                                    try:
+                                        username = client.recv(BUFFER_SIZE).decode(FORMAT)
+                                        if username == COMMAND_DISCONNECT:
+                                            client.send(COMMAND_DISCONNECT.encode(FORMAT))
+                                            log[client] = 0
+                                            break
+                                    except OSError:
+                                        log[client] = 0
                                     client.send("Password: ".encode(FORMAT))
                                     try:
                                         password = client.recv(BUFFER_SIZE).decode(FORMAT)
                                         if password == COMMAND_DISCONNECT:
+                                            log[client] = 0
+                                            client.send(COMMAND_DISCONNECT.encode(FORMAT))
                                             break
                                     except OSError:
-                                        log[client] = 0
+                                            log[client] = 0
+                                    
+                                    log[client] = 1
+                                    c.execute('SELECT * FROM database WHERE username = ? AND password = ?', (username, password))
                                 except OSError:
                                     log[client] = 0
-                                c.execute('SELECT * FROM database WHERE username = ? AND password = ?', (username, password))
-                                print(username)
-                                log[client] = 1
+                            
                             if log[client] == 1:
                                 # if found, handle the client in client_handle()
                                 print(f"[{username}] Logged in successfully")
-                                log[client] = 1
                                 database.close()
                                 client_handle(client, username)
                             else:
                                 database.close()  
                         else:
+                            log[client] = 0
+                            client.send(COMMAND_DISCONNECT.encode(FORMAT))
                             database.close()
                     except OSError:
                         log[client] = 0
                 else:
+                    log[client] = 0
+                    client.send(COMMAND_DISCONNECT.encode(FORMAT))
                     database.close()
             except OSError:
                 log[client] = 0
 
-    # Sign Up 
+        # Sign Up 
         if choice == COMMAND_SIGN_UP:
             database = sqlite3.connect('Users.db')
             c = database.cursor()
@@ -120,6 +133,8 @@ def registering(client, addr):
                             try:
                                 username = client.recv(BUFFER_SIZE).decode(FORMAT)
                                 if username == COMMAND_DISCONNECT:
+                                    log[client] = 0
+                                    client.send(COMMAND_DISCONNECT.encode(FORMAT))
                                     break
                                 c.execute('SELECT * FROM database WHERE username = ?', (username,))
                                 log[client] = 1
@@ -138,29 +153,34 @@ def registering(client, addr):
 
                                     # and then handle the client in client_handle()
                                     print(f"[{username}] Signed up successfully")
-                                    log[client] = 1
                                     database.close()
                                     client_handle(client, username)
                                 else:
+                                    log[client] = 0
+                                    client.send(COMMAND_DISCONNECT.encode(FORMAT))
                                     database.close()
                             except OSError:
                                 log[client] = 0
                         else:
                             database.close()
                     else:
+                        log[client] = 0
+                        client.send(COMMAND_DISCONNECT.encode(FORMAT))
                         database.close()
                 except OSError:
                     log[client] = 0
             except OSError:
                 log[client] = 0
-    else:
-        pass
     if log[client] == 1:
-        print(f"[{clients[client]}] Disconnected")
+            print(f"[{clients[client]}] Disconnected.") 
+            del clients[client]
+            del addresses[client]
+            log[client] = 0
+            client.close()
     else:
-        print(f"[{addr}] Disconnected")
-    log[client] = 0
-    client.close()
+        print(f"[{addresses[client]}] Disconnected")
+        del addresses[client]
+        client.close()    
     
 # Getting API keys and Return data
 def return_data(client, bank):
@@ -211,27 +231,32 @@ def return_data(client, bank):
 
             try:
                 currency = client.recv(BUFFER_SIZE).decode(FORMAT)
-                print(f"[{clients[client]}] chat: {currency}")
+                if currency != COMMAND_DISCONNECT:
+                    print(f"[{clients[client]}] chat: {currency}")
             except OSError:
                 pass
         except OSError:
             pass
+        
 
-        #   Find the currency and send the data to the client
-        try:
-            found = False
-            for items in temp2["results"]:
-                if items['currency'] == currency:
-                    found = True
-                    client.send(f"Currency: {currency}".encode(FORMAT))
-                    for element in items:
-                        if element != "currency" and element != "Currency":
-                            client.send(f"\r\n{element}: {items[element]}".encode(FORMAT))
-                    break
-            if found == False:
-                client.send("Currency not found".encode(FORMAT))
-        except OSError:
-            pass      
+        if currency != COMMAND_DISCONNECT:
+            #   Find the currency and send the data to the client
+            try:
+                found = False
+                for items in temp2["results"]:
+                    if items['currency'] == currency:
+                        found = True
+                        client.send(f"Currency: {currency}".encode(FORMAT))
+                        for element in items:
+                            if element != "currency" and element != "Currency":
+                                client.send(f"\r\n{element}: {items[element]}".encode(FORMAT))
+                        break
+                if found == False:
+                    client.send("Currency not found".encode(FORMAT))
+            except OSError:
+                pass  
+        else:
+            pass
     except OSError:
         pass
 
@@ -271,6 +296,8 @@ def client_handle(client, username):
                             if bank != COMMAND_DISCONNECT:
                                 print(f"[{username}] chat: {bank}")
                                 return_data(client, bank)
+                            else:
+                                active = False
                         except OSError:
                             pass
                 # If they type 'COMMAND_DISCONNECT'
@@ -284,6 +311,8 @@ def client_handle(client, username):
     # If clients suddenly turn off in this step
     except OSError:  
         pass
+    client.send(COMMAND_DISCONNECT.encode(FORMAT))
+
 
 # Listening to connection and handling multithreading        
 def accept_connections():
@@ -302,7 +331,7 @@ def accept_connections():
         clients[client] = client
         try:
             # Handling the socket in a new thread
-            thread = threading.Thread(target=registering, args = (client, addr))
+            thread = threading.Thread(target=registering, args = (client,))
             # This function will open a new thread and run the whatever 
             # in the attribute 'target' with the parameters in 'args'
             # in that newly opened thread
@@ -310,13 +339,9 @@ def accept_connections():
             # #Start the thread
             thread.start()
         except OSError:
-            if log[client] == 1:
-                print(f"[{client}] Disconnected.") 
-            else:
-                print(f"[{addresses[client]}] Disconnected")
-                log[client] = 0
-                client.close()                    
             pass
+                            
+
 # Basically a different, independent thread purely for sending messages to all the clients
 def main_thread():
     while True:
