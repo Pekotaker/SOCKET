@@ -162,8 +162,12 @@ class MyClient():
 client = MyClient()
 
 # client.getAddress()
+
+# Trinh Le Nguyen Vu: Add this to make things easier to handle. 
+# This is only temporarily, it might be changed later, 
+# which can be done quite effortlessly, don't worry about it.
+
 MAIN_THREAD = threading.Thread(target = client.connect)
 MAIN_THREAD.start()
 MAIN_THREAD.join()
 
-# 
