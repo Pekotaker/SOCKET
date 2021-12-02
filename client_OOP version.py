@@ -65,7 +65,7 @@ class MyClient():
             # Program will exit once all threads are done
             #send_thread.join()
             #receive_thread.join()
-        except:
+        except ValueError:
             print(f"Cannot connect to {self.server_host}:{self.server_port}")
 
 
