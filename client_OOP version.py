@@ -1,12 +1,13 @@
 import socket
 import threading
+import multiprocessing
 
 # --------SECTION A--------
 FORMAT = 'utf-8'
 BUFFER_SIZE = 8192
 COMMAND_DISCONNECT = "!disconnect"
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 12345
+DEFAULT_PORT = 55000
 
 # --------SECTION B--------
 def isDisconnectMessage(str):
@@ -23,6 +24,9 @@ class MyClient():
         self.socket = None
         self.is_active = False
         self.thread = []
+
+        #Trinh Le Nguyen Vu: added this to kill thread
+        self._kill = threading.Event()
 
     def getAddress(self):
         # Prompts to enter
@@ -61,7 +65,7 @@ class MyClient():
             # Program will exit once all threads are done
             #send_thread.join()
             #receive_thread.join()
-        except:
+        except ValueError:
             print(f"Cannot connect to {self.server_host}:{self.server_port}")
 
 
@@ -78,6 +82,8 @@ class MyClient():
 
         self.socket.close()
         print(f"[SERVER] {self.server_host} Disconnected")
+        self.kill()
+
 
     def reset(self):
         self.socket.close()
@@ -117,7 +123,7 @@ class MyClient():
         # ------------------------
         client.disconnect()
         client.reset()
-        print("All finished")
+        print("Press Enter to finish")
         # ------------------------
 
     def send(self, msg):
@@ -127,6 +133,9 @@ class MyClient():
             print("Can't send message to server (send)")
             self.is_active = False
 
+            return False
+        except:
+            self.is_active = False
             return False
 
         return True
@@ -153,8 +162,12 @@ class MyClient():
             # ------------------------
             client.disconnect()
             client.reset()
-            print("All finished")
+            print("Press Enter to Finish")
             # ------------------------
+
+    # Trinh Le Nguyen Vu: Added this function to kill thread
+    def kill(self):
+        self._kill.set()
            
         
 
