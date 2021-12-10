@@ -7,7 +7,7 @@ FORMAT = 'utf-8'
 BUFFER_SIZE = 8192
 COMMAND_DISCONNECT = "!disconnect"
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 12345
+DEFAULT_PORT = 55000
 
 # --------SECTION B--------
 def isDisconnectMessage(str):
