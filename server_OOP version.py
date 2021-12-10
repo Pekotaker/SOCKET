@@ -14,9 +14,6 @@ import sqlite3
 # For beautiful GUI
 import tkinter
 
-from server import return_data
-
-
 """-------COMMANDS LIST-------"""
 COMMAND_LOG_IN = "!login"
 COMMAND_SIGN_UP = "!signup"
@@ -270,7 +267,7 @@ class SERVER():
                             client.send("Select a date: ".encode(self.format))
                             # Send a list of available dates
                             for items in self.datelist:
-                                client.send(f"{items}\r\n".encode(self.format))
+                                client.send(f"\r\n{items}".encode(self.format))
                             try:
                                 msg = client.recv(self.bufsize).decode(self.format)
                                 if msg == COMMAND_DISCONNECT:
@@ -286,7 +283,7 @@ class SERVER():
                             client.send("Select a bank: ".encode(self.format))
                             # Send a list of available banks
                             for items in self.banklist:
-                                client.send(f"{items}\r\n".encode(self.format))
+                                client.send(f"\r\n{items}".encode(self.format))
                             try:
                                 msg = client.recv(self.bufsize).decode(self.format)
                                 
