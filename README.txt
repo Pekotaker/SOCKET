@@ -14,7 +14,7 @@ COMMAND_DISCONNECT = "!disconnect"
 COMMAND_REQUEST_DATA = "!request data"
 
 # Instructions:
-- Run server.py and client.py to start the program.
+- Run server_OOP version.py and client_OOP version.py to start the program.
 - In client.py's terminal console, you will be required to type in the HOST (IP address) and PORT, which is 127.0.0.1 and 33000 correspondingly by default.
 - After that, type in [COMMAND_LOG_IN] if you already signed up, otherwise type [COMMAND_SIGN_UP] to create a new accounts.
 - Type [COMMAND_REQUEST_DATA], server.py will return the information of the exchange rate of the chosen currency of the chosen bank.
