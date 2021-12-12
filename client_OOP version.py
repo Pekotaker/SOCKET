@@ -1,6 +1,6 @@
 import socket
 import threading
-import multiprocessing
+import tkinter
 
 # --------SECTION A--------
 FORMAT = 'utf-8'
@@ -30,8 +30,8 @@ class MyClient():
 
     def getAddress(self):
         # Prompts to enter
-        self.server_host = input("Enter host IP: ")
-        self.server_port = input("Enter PORT: ")
+        self.server_host = input("IP: ")
+        self.server_port = input("PORT: ")
 
         # If port is not blank AND is only number
         if self.server_port.__len__() > 0 and self.server_port.isnumeric() == True:
@@ -65,7 +65,7 @@ class MyClient():
             # Program will exit once all threads are done
             #send_thread.join()
             #receive_thread.join()
-        except ValueError:
+        except OSError:
             print(f"Cannot connect to {self.server_host}:{self.server_port}")
 
 
@@ -174,7 +174,7 @@ class MyClient():
 # --------SECTION D--------
 client = MyClient()
 
-# client.getAddress()
+client.getAddress()
 
 # Trinh Le Nguyen Vu: Add this to make things easier to handle. 
 # This is only temporarily, it might be changed later, 

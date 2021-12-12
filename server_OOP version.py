@@ -6,7 +6,7 @@ import threading
 import ssl
 import json
 import sched, time
-from datetime import date
+import datetime
 
 # for login and registing
 import sqlite3
@@ -18,17 +18,23 @@ import tkinter
 COMMAND_LOG_IN = "!login"
 COMMAND_SIGN_UP = "!signup"
 COMMAND_DISCONNECT = "!disconnect"
-COMMAND_REQUEST_DATA = "!request data"
 
 
 """---DEFAULT CONFIGURATION---"""
+# -----SECTION 1-----#
 BUFFER_SIZE = 8192
 FORMAT = 'utf-8'
-DEFAULT_PORT = 55000
 DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 55000
 EXCHANGE_RATE_DATABASE = "ExchangeData.db"
 USER_LOGIN_DATABASE = "Users.db"
+
+# -----SECTION 2-----#
 GETTING_DATA_INTERVAL = 1800 # seconds
+GETTING_DATA_HOST = "vapi.vnappmob.com"
+GETTING_DATA_PORT = 443
+GETTING_API_KEY_REQUEST = f"GET /api/request_api_key?scope=exchange_rate HTTP/1.1\r\nHost: {GETTING_DATA_HOST} \r\n\r\n"
+BANKLIST = {"vcb", "ctg", "tcb", "bid", "stb", "sbv"}
 
 
 """---------MAIN BODY---------"""
@@ -37,6 +43,7 @@ class SERVER():
     '''-------MAIN FUNCTIONS-------'''
     #---------------------------------------------------------------------------------------------------------#
     def __init__(self):
+
         self.bufsize = BUFFER_SIZE
         self.format = FORMAT
         self.host = DEFAULT_HOST
@@ -44,14 +51,18 @@ class SERVER():
         self.addr = (self.host, self.port)
         self.exchange_data = EXCHANGE_RATE_DATABASE
         self.users_data = USER_LOGIN_DATABASE
-        self.interval = GETTING_DATA_INTERVAL
 
+        self.banklist = BANKLIST
         self.datelist = []
-        self.banklist = {"vcb", "ctg", "tcb", "bid", "stb", "sbv"}
         self.log = {}
         self.clients = {}
         self.addresses = {}
 
+        self.interval = GETTING_DATA_INTERVAL
+        self.get_data_host = GETTING_DATA_HOST
+        self.get_data_port = GETTING_DATA_PORT
+        self.get_API_request = GETTING_API_KEY_REQUEST
+        
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind(self.addr)
  
@@ -251,55 +262,55 @@ class SERVER():
             # Store login information for temporary use: username will be used as display name in chat  
             self.clients[client] = username
             self.log[client] = 1
-            client.send(f"Welcome {username}!\nType '{COMMAND_DISCONNECT}' to quit.\nType '{COMMAND_REQUEST_DATA}' to request data.".encode(self.format))
-
             active = True
             while (active):
                 try:
-                    msg = client.recv(self.bufsize).decode(self.format)
-                    if msg != COMMAND_DISCONNECT:
-                        if msg == COMMAND_REQUEST_DATA:
-                            
-                            date = ""
-                            bank = ""
+                    # Get available dates
+                    ExchangeRate = sqlite3.connect(self.exchange_data)
+                    c = ExchangeRate.execute("SELECT date, bank, data from database")
+                    for row in c:
+                        if (row[0] not in self.datelist):
+                            self.datelist.append(row[0])
+                    ExchangeRate.close()
 
-                            # Select a date
-                            client.send("Select a date: ".encode(self.format))
-                            # Send a list of available dates
-                            for items in self.datelist:
-                                client.send(f"\r\n{items}".encode(self.format))
-                            try:
-                                msg = client.recv(self.bufsize).decode(self.format)
-                                if msg == COMMAND_DISCONNECT:
-                                    active = False
-                                    break
-                                else:
-                                    date = str(msg)
-                            except OSError:
-                                active = False
-                                break
-                            
-                            # Select a bank
-                            client.send("Select a bank: ".encode(self.format))
-                            # Send a list of available banks
-                            for items in self.banklist:
-                                client.send(f"\r\n{items}".encode(self.format))
-                            try:
-                                msg = client.recv(self.bufsize).decode(self.format)
-                                
-                                if msg == COMMAND_DISCONNECT:
-                                    active = False
-                                    break
-                                else: 
-                                    bank = str(msg)
-                            except OSError:
-                                active = False
-                                break
+                    date = ""
+                    bank = ""
 
+                    # Select a date
+                    client.send("Select a date: ".encode(self.format))
+                    # Send a list of available dates
+                    for items in self.datelist:
+                        client.send(f"\r\n{items}".encode(self.format))
+                    try:
+                        msg = client.recv(self.bufsize).decode(self.format)
+                        if msg == COMMAND_DISCONNECT:
+                            active = False
+                            break
+                        else:
+                            date = str(msg)
+                    except OSError:
+                        active = False
+                        break
                             
-                            if (date != "") and (bank != ""):
-                                self.return_data(client, date, bank)
-
+                    # Select a bank
+                    client.send("Select a bank: ".encode(self.format))
+                    # Send a list of available banks
+                    for items in self.banklist:
+                        client.send(f"\r\n{items}".encode(self.format))
+                    try:
+                        msg = client.recv(self.bufsize).decode(self.format)
+                            
+                        if msg == COMMAND_DISCONNECT:
+                            active = False
+                            break
+                        else: 
+                            bank = str(msg)
+                    except OSError:
+                        active = False
+                        break
+  
+                    if (date != "") and (bank != ""):
+                        self.return_data(client, date, bank)
                 except OSError:
                     active = False
             
@@ -308,15 +319,6 @@ class SERVER():
     
     # Periodically getting data by scheduling tasks using recursion
     def get_data(self):
-        
-        # Get available dates
-        ExchangeRate = sqlite3.connect(self.exchange_data)
-        c = ExchangeRate.execute("SELECT date, bank, data from database")
-        for row in c:
-            if (row[0] not in self.datelist):
-                self.datelist.append(row[0])
-        ExchangeRate.close()
-
         # scheduling tasks
         scheduler = sched.scheduler(time.time, time.sleep)
         def periodic(scheduler, interval):
@@ -324,7 +326,7 @@ class SERVER():
             self.update_data()       
             scheduler.run()
         periodic(scheduler, self.interval)
-         
+
     # Get the data from database and return it to users     
     def return_data(self, client, date, bank):
         # Open Exchange Rate database
@@ -393,26 +395,23 @@ class SERVER():
     def update_data(self):
 
         # Get current date
-        today = str(date.today())
+        today = str(datetime.date.today())
+        # Change format to dd/mm/yyyy
+        today = datetime.datetime.strptime(today, '%Y-%m-%d').strftime('%d/%m/%Y')
 
         # HOST and port address
-        host = "vapi.vnappmob.com"
-        address = (host, 443)
+        address = (self.get_data_host, self.get_data_port)
 
         # Wrapper with default settings
         context = ssl.create_default_context()
 
         # Create and connect to SSL socket
         ssl_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        conn = context.wrap_socket(ssl_socket, server_hostname=host)
+        conn = context.wrap_socket(ssl_socket, server_hostname=self.get_data_host)
         conn.connect(address)
 
-        # API request syntax
-        get_API_request = f"GET /api/request_api_key?scope=exchange_rate HTTP/1.1\r\nHost: {host} \r\n\r\n"
-
-
         # Request API key
-        conn.sendall(get_API_request.encode(self.format))
+        conn.sendall(self.get_API_request.encode(self.format))
         API_key = conn.recv(self.bufsize).decode(self.format)
 
         # Remove API header
@@ -431,7 +430,7 @@ class SERVER():
         for bank in self.banklist:
                 
             # Data request syntax
-            get_data_request = f"GET /api/v2/exchange_rate/{bank} HTTP/1.1\r\nHost: {host}\r\nAccept: application/json\r\nAuthorization: Bearer {API_key}\r\n\r\n"
+            get_data_request = f"GET /api/v2/exchange_rate/{bank} HTTP/1.1\r\nHost: {self.get_data_host}\r\nAccept: application/json\r\nAuthorization: Bearer {API_key}\r\n\r\n"
                 
             # Request data
             conn.sendall(get_data_request.encode(self.format))
