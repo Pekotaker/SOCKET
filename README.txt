@@ -2,6 +2,7 @@
 socket project provip
     client_OOP version.py           : client
     server_OOP version.py           : server
+    ExchangeData.db                 : Store exchange rate data
     Users.db                        : Store accounts' information
     initdatabase.py                 : Initialize database.
       - Empty database by deleting everything in Users.db and ExchangeData.db using notepad, then run this file to initialize a new database
