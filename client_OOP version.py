@@ -25,6 +25,7 @@ class MyClient():
         self.is_active = False
         self.thread = []
 
+
         #Trinh Le Nguyen Vu: added this to kill thread
         self._kill = threading.Event()
 

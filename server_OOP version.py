@@ -100,151 +100,37 @@ class SERVER():
     
     # Log In and Sign Up
     def registering(self, client):
-        # Choice: Log in or Sign Up?
         self.log[client] = 0
-        choice = ""
-        try:
-            client.send(f"Log In or Sign Up?\nType '{COMMAND_LOG_IN}' or '{COMMAND_SIGN_UP}'".encode(self.format))  
-            choice = client.recv(self.bufsize).decode(self.format)
-            while (choice != COMMAND_LOG_IN) and (choice != COMMAND_SIGN_UP):
-                if choice != COMMAND_DISCONNECT:
-                    client.send("Syntax Error. Type again".encode(self.format))
-                    choice = client.recv(self.bufsize).decode(self.format)
-                else:
-                    client.send(COMMAND_DISCONNECT.encode(self.format))
-                    break
-        except OSError:
-            pass
-            
-        if choice != "" and choice != COMMAND_DISCONNECT:
+
+        # Choice: Log in or Sign Up?
+        choice = self.choice(client)
+        
+        if choice != "":
+
+            username = ""
+            password = ""
+
             # Log In
             self.log[client] = 1
             if choice == COMMAND_LOG_IN:
-                database = sqlite3.connect(self.users_data)
-                c = database.cursor()
+                username = self.login(client, username, password)
+                if username != "":
+                    print(f"[{username}] Logged in successfully")
+                    self.client_handle(client, username)
+                else:
+                    self.log[client] = 0            
                 
-                try:
-                    #Ask for username and password
-                    client.send("Username: ".encode(self.format))
-                    username = client.recv(self.bufsize).decode(self.format)
-                    if username != COMMAND_DISCONNECT:
-                        try:   
-                            client.send("Password: ".encode(self.format))
-                            password = client.recv(self.bufsize).decode(self.format)
-                            if password != COMMAND_DISCONNECT:
 
-                                # Find existing username and corresponding password
-                                c.execute('SELECT * FROM database WHERE username = ? AND password = ?', (username, password))
-                                
-                                # If not found, login again
-                                while not c.fetchall():
-                                    self.log[client] = 0
-                                    try:
-                                        client.send("Logged in failed. Try again".encode(self.format))
-                                        client.send("Username: ".encode(self.format))
-                                        
-                                        try:
-                                            username = client.recv(self.bufsize).decode(self.format)
-                                            if username == COMMAND_DISCONNECT:
-                                                client.send(COMMAND_DISCONNECT.encode(self.format))
-                                                self.log[client] = 0
-                                                break
-                                        except OSError:
-                                            self.log[client] = 0
-                                        client.send("Password: ".encode(self.format))
-                                        try:
-                                            password = client.recv(self.bufsize).decode(self.format)
-                                            if password == COMMAND_DISCONNECT:
-                                                self.log[client] = 0
-                                                client.send(COMMAND_DISCONNECT.encode(self.format))
-                                                break
-                                        except OSError:
-                                                self.log[client] = 0
-                                        
-                                        self.log[client] = 1
-                                        c.execute('SELECT * FROM database WHERE username = ? AND password = ?', (username, password))
-                                    except OSError:
-                                        self.log[client] = 0
-                                
-                                if self.log[client] == 1:
-                                    # if found, handle the client in client_handle()
-                                    print(f"[{username}] Logged in successfully")
-                                    database.close()
-                                    self.client_handle(client, username)
-                                else:
-                                    database.close()  
-                            else:
-                                self.log[client] = 0
-                                client.send(COMMAND_DISCONNECT.encode(self.format))
-                                database.close()
-                        except OSError:
-                            self.log[client] = 0
-                    else:
-                        self.log[client] = 0
-                        client.send(COMMAND_DISCONNECT.encode(self.format))
-                        database.close()
-                except OSError:
-                    self.log[client] = 0
-
-            # Sign Up 
+            # Sign Up
+            self.log[client] = 1
             if choice == COMMAND_SIGN_UP:
-                database = sqlite3.connect(self.users_data)
-                c = database.cursor()
-
-                try:
-                    #Ask for username
-                    client.send("Username: ".encode(self.format))
-                    try:
-                        username = client.recv(self.bufsize).decode(self.format)
-                        if username != COMMAND_DISCONNECT:
-                            # Is the username already exist?
-                            c.execute('SELECT * FROM database WHERE username = ?', (username,))
-                            # If yes, then sign up failed, sign up again
-                            while c.fetchall():
-                                self.log[client] = 0
-                                client.send(f"{username} already existed. Try again".encode(self.format))
-                                client.send("Username: ".encode(self.format))
-                                try:
-                                    username = client.recv(self.bufsize).decode(self.format)
-                                    if username == COMMAND_DISCONNECT:
-                                        self.log[client] = 0
-                                        client.send(COMMAND_DISCONNECT.encode(self.format))
-                                        break
-                                    c.execute('SELECT * FROM database WHERE username = ?', (username,))
-                                    self.log[client] = 1
-                                except OSError:
-                                    self.log[client] = 0
-                            
-                            if self.log[client] == 1:
-                                # if no, then ask for a password, add new username and password to the database
-                                client.send("Password: ".encode(self.format))
-                                try:
-                                    password = client.recv(self.bufsize).decode(self.format)
-                                    if password != COMMAND_DISCONNECT:
-                                        c.execute("INSERT INTO database (username, password) \
-                                            VALUES ('"+ username + "', '" + password + "')")
-                                        database.commit()
-
-                                        # and then handle the client in client_handle()
-                                        print(f"[{username}] Signed up successfully")
-                                        database.close()
-                                        self.client_handle(client, username)
-                                    else:
-                                        self.log[client] = 0
-                                        client.send(COMMAND_DISCONNECT.encode(self.format))
-                                        database.close()
-                                except OSError:
-                                    self.log[client] = 0
-                            else:
-                                database.close()
-                        else:
-                            self.log[client] = 0
-                            client.send(COMMAND_DISCONNECT.encode(self.format))
-                            database.close()
-                    except OSError:
-                        self.log[client] = 0
-                except OSError:
+                username = self.signup(client, username, password)
+                if username != "":
+                    print(f"[{username}] Logged in successfully")
+                    self.client_handle(client, username)
+                else:
                     self.log[client] = 0
+        
         if self.log[client] == 1:
                 print(f"[{self.clients[client]}] Disconnected.") 
                 del self.clients[client]
@@ -380,6 +266,91 @@ class SERVER():
                 sock.send(msg.encode(self.format))
         except OSError:
             pass
+    
+    # Reading choice
+    def choice(self, client) -> str:
+        choice = ""
+        client.send(f"\nLog In : {COMMAND_LOG_IN}\nSign Up: {COMMAND_SIGN_UP}".encode(self.format))
+        while (choice != COMMAND_LOG_IN) and (choice != COMMAND_SIGN_UP):
+            try:
+                choice = client.recv(self.bufsize).decode(self.format)
+            except OSError:
+                return ""
+            if (choice == COMMAND_LOG_IN) and (choice == COMMAND_SIGN_UP):
+                client.send("Syntax Error. Choose again".encode(self.format))
+        return choice
+
+    # Function for logging in
+    def login(self, client, username, password) -> str:
+        while not self.check_account_login(username, password):
+            try:
+                client.send("Username: ".encode(self.format))
+                username = client.recv(self.bufsize).decode(self.format)
+            except OSError:
+                return ""
+            
+            try:
+                client.send("Password: ".encode(self.format))
+                password = client.recv(self.bufsize).decode(self.format)
+            except OSError:
+                return ""
+
+            if not self.check_account_login(username, password):
+                client.send("Log In failed. Please try again.".encode(self.format))
+        return username        
+
+    # Function for signing up
+    def signup(self, client, username, password) -> str:
+        while not self.check_account_availability(username):
+            try:
+                client.send("Username: ".encode(self.format))
+                username = client.recv(self.bufsize).decode(self.format)
+            except OSError:
+                return ""
+
+            if not self.check_account_availability(username):
+                client.send("Username already exist. Try a different one.".encode(self.format))
+                continue
+            else: 
+                pass
+            
+        try:
+            client.send("Password: ".encode(self.format))
+            password = client.recv(self.bufsize).decode(self.format) 
+        except OSError:
+            return ""
+        
+        UsersData = sqlite3.connect(self.users_data)
+        c = UsersData.cursor()
+        c.execute("INSERT INTO database (username, password) \
+            VALUES ('" + username + "', '" + password + "')")
+        UsersData.commit()
+        UsersData.close()
+        return username
+
+    # Check account information validity for logging in
+    def check_account_login(self, username, password) -> bool:
+        UsersData = sqlite3.connect(self.users_data)
+        c = UsersData.cursor()
+        c.execute("SELECT * FROM database WHERE username = ? AND password = ?", (username, password))
+        if not c.fetchall():
+            UsersData.close()
+            return False
+        else:
+            UsersData.close()
+            return True
+        
+    # Check account information availability for signing up   
+    def check_account_availability(self, username) -> bool:
+        UsersData = sqlite3.connect(self.users_data)
+        c = UsersData.cursor()
+        c.execute("SELECT * FROM database WHERE username = ?", (username, ))
+        if not c.fetchall():
+            UsersData.close()
+            return True
+        else:
+            UsersData.close()
+            return False
 
     # Insert data into Exchange Rate database
     def insert_data(self, date, bank, data):
