@@ -8,9 +8,6 @@ from os import path
 # ./GUI (GUI folder in current project folder
 # ../GUI (GUI folder a tier above the current project folder
 
-
-
-
 # --------SECTION A (SECT A)--------
 FORMAT = 'utf-8'
 BUFFER_SIZE = 8192
@@ -81,7 +78,7 @@ def showRequest():
     ui.setupUi(MainWindow)
     RECEIVE_THREAD = threading.Thread(target = client.receive_thread)
     RECEIVE_THREAD.start()
-    ui.goBack.clicked.connect(showConnect)
+    # ui.goBack.clicked.connect(showConnect)
     # ui.logOut.clicked.connect(showSignIn)
     ui.send.clicked.connect(processRequest)
     ui.disconnect.clicked.connect(processDisconnect)
@@ -390,6 +387,8 @@ class MyClient():
                     # If server wants to terminate
                 if isDisconnectMessage(msg):
                     self.is_active = False
+                    ui.listView.append(f"[SERVER] Disconnected")
+                    self.socket.close()
                     break
 
                 if should_print:
