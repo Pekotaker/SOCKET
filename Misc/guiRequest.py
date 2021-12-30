@@ -110,7 +110,7 @@ class UI_MainWindow(object):
 ####################################################### Button Disconnect ###################################################
 
         self.disconnect = QtWidgets.QPushButton(self.centralwidget)
-        self.disconnect.setGeometry(QtCore.QRect(220, 350, 190, 40))
+        self.disconnect.setGeometry(QtCore.QRect(220, 300, 190, 40))
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(True)
@@ -140,7 +140,7 @@ class UI_MainWindow(object):
 ####################################################### Phần OutPut cho Client ##############################################
 
         self.listView = QtWidgets.QTextEdit(self.centralwidget)
-        self.listView.setGeometry(QtCore.QRect(10, 430, 640, 330))
+        self.listView.setGeometry(QtCore.QRect(10, 380, 640, 350))
         self.listView.setObjectName("listView")
 
 ######################################################## Currency Input #######################################################

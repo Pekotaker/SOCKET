@@ -35,7 +35,7 @@ username = ""
 
 
 def showSignIn():
-    client.send(COMMAND_LOG_IN)
+    client.send2(COMMAND_LOG_IN)
     global ui
     ui = guiSignIn.UI_MainWindow()
     ui.setupUi(MainWindow)
@@ -47,7 +47,7 @@ def showSignIn():
     MainWindow.show()
 
 def showSignUp():
-    client.send(COMMAND_SIGN_UP)
+    client.send2(COMMAND_SIGN_UP)
     global ui
     ui = guiSignUp.UI_MainWindow()
     ui.setupUi(MainWindow)
@@ -85,7 +85,8 @@ def showRequest():
     MainWindow.show()
 
 def processDisconnect():
-    client.send(COMMAND_DISCONNECT)
+    if client.is_active:
+        client.send2(COMMAND_DISCONNECT)
     client.reset()
     showConnect()
 
@@ -142,19 +143,19 @@ def processSignUp():
     global username
     username = myUsername
 
-    if len(myUsername) == 0 or len(myPassword) == 0 or len(myPassword2) == 0:
+    if len(myUsername) == 0:
         ui.errorBox()
     elif myPassword != myPassword2:
-        ui.errorBox()
+        ui.errorBox_password()
     else:
         temp = client.receive2() # Server should send request for username
         time.sleep(0.5)
 
-        client.send(myUsername)
+        client.send2(myUsername)
         temp = client.receive2() # Server should send request for password
         time.sleep(0.5)
 
-        client.send(myPassword)
+        client.send2(myPassword)
         temp = client.receive2()
         if "failed" in temp:
             ui.errorBox()
@@ -177,10 +178,10 @@ def processSignIn():
     temp = client.receive2() # Server should send request for username
     time.sleep(0.5)
 
-    client.send(myUsername)
+    client.send2(myUsername)
     temp = client.receive2() # Server should send request for password
     time.sleep(0.5)
-    client.send(myPassword)
+    client.send2(myPassword)
     temp = client.receive2()
 
     if "failed" in temp:
@@ -199,23 +200,38 @@ def processRequest():
     """
     msg = ui.message.text()
     if msg.__len__() > 0:
-        client.send(msg)
-        ui.listView.append(f"[{username}] {msg}")
-        ui.message.setText("")
+        if client.send2(msg):
+            ui.listView.append(f"[{username}] {msg}")
+            ui.message.setText("")
+        else:
+            ui.errorBox()
+            showConnect()
+            return
         
-    
     date = ui.dateEdit.text()
     bank = ui.bank.text()
     currency = ui.currency.text()
 
     if date.__len__() > 0 and bank.__len__() > 0 and currency.__len__() > 0:
-        client.send(COMMAND_REQUEST_DATA)
+        if not client.send2(COMMAND_REQUEST_DATA):
+            ui.errorBox()
+            showConnect()
+            return
         time.sleep(0.5)
-        client.send(date)
+        if not client.send2(date):
+            ui.errorBox()
+            showConnect()
+            return
         time.sleep(0.5)
-        client.send(bank)
+        if not client.send2(bank):
+            ui.errorBox()
+            showConnect()
+            return
         time.sleep(0.5)
-        client.send(currency)  
+        if not client.send2(currency):
+            ui.errorBox()
+            showConnect()
+            return  
      
 # --------SECTION C  (SECT C)--------
 class MyClient():
@@ -295,7 +311,7 @@ class MyClient():
 
     def disconnect(self):
         if not self.is_active:
-            self.send(COMMAND_DISCONNECT)
+            self.send2(COMMAND_DISCONNECT)
 
         self.socket.close()
         print(f"[SERVER] {self.server_host} Disconnected")
@@ -360,7 +376,7 @@ class MyClient():
 
             # If server wants to terminate
             if isDisconnectMessage(msg):
-                client.send(COMMAND_DISCONNECT)
+                client.send2(COMMAND_DISCONNECT)
                 self.is_active = False
 
             return msg
@@ -394,9 +410,24 @@ class MyClient():
                 if should_print:
                     ui.listView.append(f"[SERVER] {msg}")
             except OSError:
-                ui.listView.append("Error! Most likely losing connection to server (receive)")
+                if ui == guiRequest.UI_MainWindow():
+                    ui.listView.append("Error! Most likely losing connection to server (receive)")
 
                 break
+
+    def send2(self, msg):
+        try:
+            self.socket.sendall(msg.encode(FORMAT))
+        except OSError:
+            print("Can't send message to server (send)")
+            self.is_active = False
+
+            return False
+        except:
+            self.is_active = False
+            return False
+
+        return True
 
     def send(self, msg):
         try:
@@ -411,7 +442,6 @@ class MyClient():
             return False
 
         return True
-
     def process(self):
         """
         1. Always wait for input
@@ -424,7 +454,7 @@ class MyClient():
                 msg = input()
 
                 # Sending to server. And check whether sending successfully
-                if not self.send(msg):
+                if not self.send2(msg):
                     self.is_active = False
 
                     break

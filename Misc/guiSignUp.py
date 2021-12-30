@@ -22,6 +22,14 @@ class UI_MainWindow(object):
         msg.setStandardButtons(QMessageBox.Ok)
         x = msg.exec_()
 
+    def errorBox_password(self):
+        msg = QMessageBox()
+        msg.setWindowTitle("Error")
+        msg.setText("Password does not match")
+        msg.setWindowIcon(QtGui.QIcon(errorIcon))
+        msg.setStandardButtons(QMessageBox.Ok)
+        x = msg.exec_() 
+
     def createAccountSuccess(self):
         msg = QMessageBox()
         msg.setWindowTitle("success")

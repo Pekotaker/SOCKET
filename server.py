@@ -279,7 +279,7 @@ class SERVER(QMainWindow):
                                 active = False
                                 break
                             else:
-                                date = str(msg)
+                                date = msg
                         except OSError:
                             active = False
                             break
@@ -296,7 +296,7 @@ class SERVER(QMainWindow):
                                 active = False
                                 break
                             else: 
-                                bank = str(msg)
+                                bank = msg
                         except OSError:
                             active = False
                             break
@@ -333,9 +333,10 @@ class SERVER(QMainWindow):
         # Open Exchange Rate database
         data = ""
         ExchangeData = sqlite3.connect(self.exchange_data)
-        cursor = ExchangeData.execute('SELECT * FROM database WHERE date = ? AND bank = ?', (date, bank))
+        cursor = ExchangeData.cursor()
+        cursor.execute('SELECT * FROM database WHERE date = ? AND bank = ?', (date, bank))
 
-        if cursor:
+        if cursor.fetchall():
             for row in cursor:
                 data = json.loads(row[2])
             try: 
@@ -367,6 +368,7 @@ class SERVER(QMainWindow):
                 pass        
         else:
             client.send("Data not found. ".encode(self.format))
+            msg = client.recv(self.bufsize).decode(self.format)
     #---------------------------------------------------------------------------------------------------------#
 
 
@@ -520,7 +522,7 @@ class SERVER(QMainWindow):
         # Get current date
         today = str(datetime.date.today())
         # Change format to dd/mm/yyyy
-        today = datetime.datetime.strptime(today, '%Y-%m-%d').strftime('%d/%m/%Y')
+        today = str(datetime.datetime.strptime(today, '%Y-%m-%d').strftime('%d/%m/%Y'))
 
         # HOST and port address
         address = (self.get_data_host, self.get_data_port)
