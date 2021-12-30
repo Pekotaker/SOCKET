@@ -1,14 +1,17 @@
 import sys
+from os import path
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox
+
+errorIcon = path.join(path.dirname(__file__), "error.png")
 
 class UI_MainWindow(object):
     
     def errorBox(self):
         msg = QMessageBox()
         msg.setWindowTitle("Error")
-        msg.setText("An unknown error")
-        msg.setWindowIcon(QtGui.QIcon('error.png'))
+        msg.setText("Lost connection")
+        msg.setWindowIcon(QtGui.QIcon(errorIcon))
         msg.setStandardButtons(QMessageBox.Ok)
         x = msg.exec_()
 

@@ -47,17 +47,21 @@ def showSignIn():
     MainWindow.show()
 
 def showSignUp():
-    client.send2(COMMAND_SIGN_UP)
-    global ui
-    ui = guiSignUp.UI_MainWindow()
-    ui.setupUi(MainWindow)
+    if client.send2(COMMAND_SIGN_UP):
+        global ui
+        ui = guiSignUp.UI_MainWindow()
+        ui.setupUi(MainWindow)
 
-    # Trigger a function on button press
-    ui.back.clicked.connect(showSignIn)
-    #ui.createAccount.clicked.connect(showConnect)
-    ui.createAccount.clicked.connect(processSignUp)
+        # Trigger a function on button press
+        ui.back.clicked.connect(showSignIn)
+        #ui.createAccount.clicked.connect(showConnect)
+        ui.createAccount.clicked.connect(processSignUp)
 
-    MainWindow.show()
+        MainWindow.show()
+    else:
+        guiRequest.UI_MainWindow().errorBox()
+        showConnect()
+        return
 
 def showConnect():
     global ui
@@ -151,13 +155,21 @@ def processSignUp():
         temp = client.receive2() # Server should send request for username
         time.sleep(0.5)
 
-        client.send2(myUsername)
-        temp = client.receive2() # Server should send request for password
-        time.sleep(0.5)
+        if client.send2(myUsername):
+            temp = client.receive2() # Server should send request for password
+            time.sleep(0.5)
+        else:
+            guiRequest.UI_MainWindow().errorBox()
+            showConnect()
+            return
 
-        client.send2(myPassword)
-        temp = client.receive2()
-        if "failed" in temp:
+        if client.send2(myPassword):
+            temp = client.receive2()
+        else:
+            guiRequest.UI_MainWindow().errorBox()
+            showConnect()
+            return
+        if "Username:" in temp:
             ui.errorBox()
         elif "successfully" in temp:
             showRequest()  
@@ -178,11 +190,20 @@ def processSignIn():
     temp = client.receive2() # Server should send request for username
     time.sleep(0.5)
 
-    client.send2(myUsername)
-    temp = client.receive2() # Server should send request for password
+    if client.send2(myUsername):
+        temp = client.receive2() # Server should send request for password
+    else:
+        guiRequest.UI_MainWindow().errorBox()
+        showConnect()
+        return
     time.sleep(0.5)
-    client.send2(myPassword)
-    temp = client.receive2()
+    
+    if client.send2(myPassword):
+        temp = client.receive2()
+    else:
+        guiRequest.UI_MainWindow().errorBox()
+        showConnect()
+        return
 
     if "failed" in temp:
         ui.errorBox()
@@ -421,7 +442,6 @@ class MyClient():
         except OSError:
             print("Can't send message to server (send)")
             self.is_active = False
-
             return False
         except:
             self.is_active = False
@@ -442,6 +462,7 @@ class MyClient():
             return False
 
         return True
+    
     def process(self):
         """
         1. Always wait for input

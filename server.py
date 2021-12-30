@@ -574,9 +574,6 @@ class SERVER(QMainWindow):
         self.ui.setupUi(self.window)
         self.window.show()    
 
-    def UI_main(self, MainWindow):
-        pass
-
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
