@@ -13,9 +13,7 @@ https://www.python.org/downloads/
 - Open a command prompt and navigate to the folder containing the get-pip.py installer.
 - Run the following command:
 	┌────────────────────────┐
-	│                        │
 	│   python get-pip.py    │
-	│                        │
 	└────────────────────────┘
 -------RUN FILE-------
 - Run server.py and client.py to start the program.
